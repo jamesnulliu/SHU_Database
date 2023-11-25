@@ -1,2 +1,2 @@
 # SHU_Database
-Shanghai University database Course assignments and project share.
+Shanghai University Database course assignments and project share.
