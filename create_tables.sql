@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS class_schedule (
 CREATE TABLE IF NOT EXISTS course_selection (
   id INT(8) ZEROFILL NOT NULL UNIQUE AUTO_INCREMENT,
   student_id INT(4) ZEROFILL,
+  class_schedule_id INT(8) ZEROFILL,
   semester VARCHAR(255) NOT NULL,
   course_id INT(8) ZEROFILL,
   teacher_id INT(4) ZEROFILL,
@@ -61,6 +62,7 @@ CREATE TABLE IF NOT EXISTS course_selection (
   exam_score INT,
   final_score INT,
   PRIMARY KEY (id),
+  Foreign Key (class_schedule_id) REFERENCES class_schedule(id),
   Foreign Key (student_id) REFERENCES students(id),
   Foreign Key (course_id) REFERENCES courses(id),
   Foreign Key (teacher_id) REFERENCES teachers(id)

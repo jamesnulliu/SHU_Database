@@ -1,2 +1,2 @@
-from .core import MySQLServerManager as MySQLServerManager
+from .core.MySQLServerManger import MySQLServerManager
 

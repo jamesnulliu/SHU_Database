@@ -1,20 +1,37 @@
 import pymysql
+import logging
 from typing import List, Tuple, Any
 
 
 class MySQLServerManager(object):
-    def __init__(self, host: str, port: str, user: str, password: str, database: str = None):
-        """Create a MySQL server manager.
+    def __init__(
+        self,
+        host: str,
+        port: str,
+        user: str,
+        password: str,
+        database: str = None,
+    ):
+        """
+        MySQL server manager.
 
-        Args:
-            host (str): IP address of the server.
-            port (str): Port number.
-            user (str): Username.
-            password (str): Password.
-            database (str, optional): Database name. Defaults to None.
+        Parameters
+        ----------
+        host : str
+            Connection host.
+        port : str
+            Connection port.
+        user : str
+            User name.
+        password : str
+            Password.
+        database : str, optional
+            Try to activate a database, by default None
 
-        Raises:
-            Exception: If the database is not None but not exists in the server.
+        Raises
+        ------
+        Exception
+            Port cannot be converted to an integer.
         """
         super().__init__()
         self.database_activated = None
@@ -25,29 +42,49 @@ class MySQLServerManager(object):
             raise Exception("Port must be a number!")
         self.user = user
         self.password = password
-        self.connection = pymysql.connect(host=self.host, user=self.user, password=self.password, port=self.port)
+        self.connection = pymysql.connect(
+            host=self.host,
+            user=self.user,
+            password=self.password,
+            port=self.port,
+        )
         self.cursor = self.connection.cursor()
 
         if database is not None:
             if self.cursor.execute(f"SHOW DATABASES LIKE '{database}'") == 0:
-                raise Exception(f"Database {database} not exists!")
+                logging.warning(f"Database {database} not exists!")
             else:
                 self.cursor.execute(f"USE {database}")
                 self.database_activated = database
 
-    def execute_query(self, query: str):
-        """Execute a query.
-
-        Args:
-            query (str): Query.
+    def execute_query(self, query: str, args: list | tuple | dict = None):
         """
-        self.cursor.execute(query)
+        Execute a SQL query.
+
+        Parameters
+        ----------
+        query : str
+            SQL query.
+        args : list | tuple | dict, optional
+            If args is a list or tuple, %s can be used as a placeholder in the query.
+            If args is a dict, %(name)s can be used as a placeholder in the query.
+            By default None
+        """
+        self.cursor.execute(query, args)
 
     def execute_file(self, file_path: str):
-        """Execute a SQL script.
+        """
+        Execute a SQL script.
 
-        Args:
-            file_path (str): File path.
+        Parameters
+        ----------
+        file_path : str
+            SQL script file path.
+
+        Raises
+        ------
+        Exception
+            The file must be a SQL script which ends with ".sql".
         """
         if not file_path.endswith(".sql"):
             raise Exception("File must be a SQL script!")
@@ -61,75 +98,115 @@ class MySQLServerManager(object):
             for statement in statements:
                 self.cursor.execute(statement + ";")
 
-    def result(self):
-        """Get the result of the last query.
+    def result(self) -> Tuple[Tuple[Any, ...], ...]:
+        """
+        Get the result of the last query.
 
-        Returns:
-            list: Result.
+        Returns
+        -------
+        Tuple[Tuple[Any, ...], ...]
+            The result of the last query.
         """
         return self.cursor.fetchall()
 
     def commit(self):
-        """Commit changes."""
+        """
+        Commit the changes.
+        The changes that need to be committed include:
+            - CREATE DATABASE
+            - DROP DATABASE
+            - CREATE TABLE
+            - DROP TABLE
+            - INSERT
+            - DELETE
+
+        Query
+        -----
+            >>> COMMIT
+        """
         self.connection.commit()
 
     def has_database(self, database: str) -> bool:
-        """Check if a database exists.
+        """
+        Check if the database exists.
 
-        Query:
-            SHOW DATABASES LIKE 'database'
+        Parameters
+        ----------
+        database : str
+            Database name.
 
-        Args:
-            database (str): Database name.
+        Returns
+        -------
+        bool
+            True if the database exists, otherwise False.
 
-        Returns:
-            bool: True if exists, False otherwise.
+        Query
+        -----
+            >>> SHOW DATABASES LIKE database
         """
         return self.cursor.execute(f"SHOW DATABASES LIKE '{database}'") != 0
 
     def create_database(self, database: str):
-        """Create a database.
+        """
+        Create a database.
 
-        Query:
-            CREATE DATABASE database
+        Parameters
+        ----------
+        database : str
+            Database name.
 
-        Args:
-            database (str): Database name.
+        Raises
+        ------
+        Exception
+            The database already exists.
 
-        Raises:
-            Exception: If the database already exists.
+        Query
+        -----
+            >>> CREATE DATABASE database
         """
         if self.has_database(database):
             raise Exception(f"Database {database} already exists!")
         self.cursor.execute(f"CREATE DATABASE {database}")
 
     def drop_database(self, database: str):
-        """Erase a database.
+        """
+        Drop a database.
 
-        Query:
-            DROP DATABASE database
+        Parameters
+        ----------
+        database : str
+            Database name.
 
-        Args:
-            database (str): Database name.
+        Raises
+        ------
+        Exception
+            The database not exists.
 
-        Raises:
-            Exception: If the database not exists.
+        Query
+        -----
+            >>> DROP DATABASE database
         """
         if not self.has_database(database):
             raise Exception(f"Database {database} not exists!")
         self.cursor.execute(f"DROP DATABASE {database}")
 
     def activate_database(self, database: str):
-        """Activate a database.
+        """
+        Activate a database.
 
-        Query:
-            USE database
+        Parameters
+        ----------
+        database : str
+            Database name.
 
-        Args:
-            database (str): Database name.
+        Raises
+        ------
+        Exception
+            The database not exists.
 
-        Raises:
-            Exception: If the database not exists.
+        Query
+        -----
+            >>> USE database
         """
         if not self.has_database(database):
             raise Exception(f"Database {database} not exists!")
@@ -137,34 +214,45 @@ class MySQLServerManager(object):
         self.database_activated = database
 
     def create_table(self, table_name: str, columns: list[str]):
-        """Create a table.
+        """
+        Create a table.
 
-        Query:
-            CREATE TABLE table_name (columns)
+        Parameters
+        ----------
+        table_name : str
+            Table name.
+        columns : list[str]
+            Columns of the table.
 
-        Args:
-            table_name (str): Table name.
-            columns (list[str]): Columns.
+        Raises
+        ------
+        Exception
+            No database activated. Call method `activate_database()` first.
 
-        Raises:
-            Exception: If no database activated.
+        Query
+        -----
+            >>> CREATE TABLE table_name (columns)
         """
         if self.database_activated is None:
             raise Exception("No database activated!")
         else:
-            self.cursor.execute(f"CREATE TABLE {table_name} ({','.join(columns)})")
+            self.cursor.execute(
+                f"CREATE TABLE {table_name} ({','.join(columns)})"
+            )
 
     def erase_table(self, table_name: str):
-        """Erase a table.
+        """
+        Erase a table.
 
-        Query:
-            DROP TABLE table_name
+        Parameters
+        ----------
+        table_name : str
+            Table name.
 
-        Args:
-            table_name (str): Table name.
-
-        Raises:
-            Exception: If no database activated.
+        Raises
+        ------
+        Exception
+            No database activated. Call method `activate_database()` first.
         """
         if self.database_activated is None:
             raise Exception("No database activated!")
@@ -176,49 +264,80 @@ class MySQLServerManager(object):
         table_name: str,
         columns: List[str] = None,
         values: List[List] = None,
-        replace: Tuple[List, Any] = None,
+        each_row: Any = None,
+        each_elem: Any = None,
     ):
-        """Insert a record.
+        """
+        Insert records.
 
-        Query:
-            INSERT INTO table_name (columns) VALUES (values)
+        Parameters
+        ----------
+        table_name : str
+            Table name.
+        columns : List[str], optional
+            Column names of inserted values, by default None (means all columns).
+        values : List[List], optional
+            Values to insert, by default None.
+        each_row : Any, optional
+            A function to process each row, by default None.
+        each_elem : Any, optional
+            A function to process each element, by default None.
 
-        Args:
-            table_name (str): Table name.
-            columns (List[str], optional): Columns of the insertion values. Defaults to None.
-            values (List[List], optional): Insertion values. Defaults to None.
-            replace (Tuple[List, Any], optional): Replace the target values in replace[0] with replace[1]. Defaults to None.
+        Raises
+        ------
+        Exception
+            No database activated. Call method `activate_database()` first.
+        Exception
+            No values to insert.
 
-        Raises:
-            Exception: If no database activated.
-            Exception: If no values to insert.
+        Query
+        -----
+            >>> INSERT INTO table_name (columns) VALUES (values)
         """
         if self.database_activated is None:
             raise Exception("No database activated!")
         if values is None or len(values) == 0 or len(values[0]) == 0:
             raise Exception("No values to insert!")
-        if replace is not None:
-            for target in replace[0]:
-                values = [[replace[1] if str(x) == str(target) else x for x in sublist] for sublist in values]
+
+        if each_elem is not None and each_row is not None:
+            values = [
+                each_row([each_elem(elem) for elem in row]) for row in values
+            ]
+        elif each_elem is not None:
+            values = [[each_elem(elem) for elem in row] for row in values]
+        elif each_row is not None:
+            values = [each_row(row) for row in values]
+
         if columns is not None:
             self.cursor.executemany(
-                f"INSERT INTO {table_name} ({','.join(columns)}) VALUES ({','.join(['%s'] * len(columns))})", values
+                f"INSERT INTO {table_name} ({','.join(columns)}) VALUES ({','.join(['%s'] * len(columns))})",
+                values,
             )
         else:
-            self.cursor.executemany(f"INSERT INTO {table_name} VALUES ({','.join(['%s'] * len(values[0]))})", values)
+            self.cursor.executemany(
+                f"INSERT INTO {table_name} VALUES ({','.join(['%s'] * len(values[0]))})",
+                values,
+            )
 
     def delete(self, table_name: str, condition: str = None):
-        """Delete records.
+        """
+        Delete records.
 
-        Query:
-            DELETE FROM table_name WHERE condition
+        Parameters
+        ----------
+        table_name : str
+            Table name.
+        condition : str, optional
+            Condition, by default None (means all records).
 
-        Args:
-            table_name (str): Table name.
-            condition (str, optional): Condition. Defaults to None.
+        Raises
+        ------
+        Exception
+            No database activated. Call method `activate_database()` first.
 
-        Raises:
-            Exception: If no database activated.
+        Query
+        -----
+            >>> DELETE FROM table_name WHERE condition
         """
         if self.database_activated is None:
             raise Exception("No database activated!")
