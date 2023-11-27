@@ -8,4 +8,3 @@ mysql.activate_database(DATABASE)
 mysql.execute_query("SELECT * FROM students WHERE id = 1101")
 
 print(mysql.result())
-
